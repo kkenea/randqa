@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+.pytest_cache/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.ruff_cache/
+
+# Virtual environments
+.env
+.venv/
+venv/
+
+# Testing
+.pytest_cache/
+.coverage
+.ruff_cache/
+
+# IDEs and editors
+.vscode/
+.idea/
+
+# Project specific
+results/
+*.bin
+*.log
+
+# OS generated files
+.DS_Store
+Thumbs.db

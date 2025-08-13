@@ -1,0 +1,58 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "randqa"
+version = "0.1.0"
+description = "A toolkit for analyzing randomness quality in cryptographic applications. Implements NIST SP 800-22 statistical tests, SP 800-90B health tests, ML predictability analysis, and provides multiple interfaces (GUI, API, CLI) with optional AI recommendations."
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+    { name = "Kena Kenea", email = "kkenea@proton.me" }
+]
+dependencies = [
+    "numpy>=2.3.1",
+    "scikit-learn>=1.7.0",
+    "scipy>=1.16.0"
+]
+
+[project.optional-dependencies]
+ai = [
+  "langchain>=0.2.11",
+  "langchain-community>=0.2.10",
+
+  # OpenAI
+  "langchain-openai>=0.2.10",
+  "openai>=1.40.0",
+  "tiktoken>=0.7.0",
+
+  # Google Gemini
+  "langchain-google-genai>=0.7.2",
+  "google-generativeai>=0.7.2",
+
+  # Anthropic Claude
+  "langchain-anthropic>=0.2.0",
+  "anthropic>=0.34.2"
+]
+
+gui = ["streamlit>=1.37.0", "matplotlib>=3.8"]
+
+web = [
+    "Flask>=3.0.0"
+]
+dev = [
+    "pytest>=8.4.1",
+    "ruff>=0.12.1"
+]
+
+[project.scripts]
+randqa = "main:main"
+randqa-web = "web:serve"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+py-modules = ["main", "web"]
+
+[tool.setuptools.packages.find]
+where = ["src"]

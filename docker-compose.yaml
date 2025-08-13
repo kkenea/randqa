@@ -1,0 +1,28 @@
+services:
+  api:
+    build: .
+    command: >
+      bash -lc "gunicorn -w 2 -k gthread -t 60
+      -b 0.0.0.0:8000 'web:create_app()'"
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    env_file:
+      - .env
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  gui:
+    build: .
+    command: >
+      bash -lc "python -m streamlit run src/gui.py
+      --server.address 0.0.0.0 --server.port 8501"
+    ports:
+      - "8501:8501"
+    restart: unless-stopped
+    env_file:
+      - .env
+
