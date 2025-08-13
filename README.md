@@ -279,7 +279,7 @@ Errors:
 # Install dev + all interfaces
 uv sync --extra dev --extra web --extra gui --extra ai
 
-# Tests (31 tests currently implemented)
+# Tests
 uv run pytest -q
 
 # Lint (optional)
