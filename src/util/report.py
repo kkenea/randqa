@@ -5,7 +5,7 @@ from __future__ import annotations
 def glossary_md(alpha: float) -> str:
     return f"""\
 ### Test glossary (α={alpha})
-- **Monobit (Frequency):** Checks overall balance of 0/1 across the whole stream.
+- **Mono_bit (Frequency):** Checks overall balance of 0/1 across the whole stream.
 - **Runs:** Checks the count of runs (contiguous 0s/1s). Too many or too few implies non-random oscillation.
 - **Block Frequency:** Splits data into fixed-size blocks and looks for local bias per block.
 - **Approximate Entropy (m=2):** Detects repeating/local regularity using overlapping patterns; lower ApEn ⇒ more structure.
@@ -27,7 +27,7 @@ def interpret(results: dict, alpha: float) -> list[str]:
     """Return bullet-point interpretations given results + alpha."""
     msgs: list[str] = []
     # p-values
-    mono = results.get("monobit_p")
+    mono = results.get("mono_bit_p")
     runs = results.get("runs_p")
     blk = results.get("block_frequency_p")
     ent = results.get("shannon_entropy_bits_per_bit")
@@ -35,8 +35,8 @@ def interpret(results: dict, alpha: float) -> list[str]:
     acc = results.get("ml_accuracy")
     dec = results.get("decisions", {})
 
-    if mono is not None and not dec.get("monobit_pass", False):
-        msgs.append(f"Monobit p={mono:.4f} ≤ α: global 0/1 imbalance detected.")
+    if mono is not None and not dec.get("mono_bit_pass", False):
+        msgs.append(f"Mono_bit p={mono:.4f} ≤ α: global 0/1 imbalance detected.")
     if runs is not None and not dec.get("runs_pass", False):
         msgs.append(f"Runs p={runs:.4f} ≤ α: abnormal alternation pattern.")
     if blk is not None and not dec.get("block_frequency_pass", False):

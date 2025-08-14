@@ -138,14 +138,14 @@ with st.sidebar:
         "Enable AI recommendations",
         help="Uses API keys from environment variables (.env file) to provide AI-powered analysis recommendations.",
     )
-    
+
     if enable_ai:
-        # Check if any API keys are available in environment
         import os
+
         openai_key = os.environ.get("OPENAI_API_KEY")
         gemini_key = os.environ.get("GEMINI_API_KEY")
         anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
-        
+
         available_providers = []
         if openai_key:
             available_providers.append("openai")
@@ -153,33 +153,35 @@ with st.sidebar:
             available_providers.append("gemini")
         if anthropic_key:
             available_providers.append("anthropic")
-            
+
         if not available_providers:
-            st.error("No API keys found in environment variables. Please set OPENAI_API_KEY, GEMINI_API_KEY, or ANTHROPIC_API_KEY in your .env file.")
+            st.error(
+                "No API keys found in environment variables. Please set OPENAI_API_KEY, GEMINI_API_KEY, or ANTHROPIC_API_KEY in your .env file."
+            )
             st.stop()
-            
+
         provider = st.selectbox(
             "Provider",
             available_providers,
             index=0,
             help="Pick the LLM provider for recommendations.",
         )
-        
-        # Get API key from environment based on selection
+
         api_key_map = {
             "openai": openai_key,
             "gemini": gemini_key,
-            "anthropic": anthropic_key
+            "anthropic": anthropic_key,
         }
         api_key = api_key_map[provider]
-        
-        # Get default model from environment or use defaults
+
         default_model = {
             "openai": os.environ.get("DEFAULT_OPENAI_MODEL", "gpt-4o-mini"),
             "gemini": os.environ.get("DEFAULT_GEMINI_MODEL", "gemini-1.5-flash"),
-            "anthropic": os.environ.get("DEFAULT_ANTHROPIC_MODEL", "claude-3-haiku-20240307"),
+            "anthropic": os.environ.get(
+                "DEFAULT_ANTHROPIC_MODEL", "claude-3-haiku-20240307"
+            ),
         }[provider]
-        
+
         model_name = st.text_input("Model name", value=default_model)
         st.info(f"Using API key from environment variables for {provider}.")
         st.warning(
@@ -197,7 +199,7 @@ def _bits_from_bytes(raw: bytes, n_bits: int) -> np.ndarray:
     if not raw:
         return np.zeros(0, dtype=np.uint8)
     arr = np.frombuffer(raw, dtype=np.uint8)
-    bits = np.unpackbits(arr)
+    bits = np.unpackbits(arr, bitorder="little")
     return bits[:n_bits].astype(np.uint8)
 
 
@@ -266,25 +268,30 @@ if run_btn:
                 apt_window=int(apt_window),
             )
             detailed[label] = res
-            # Row for compare table
-            # Handle APT "NOT RUN" based on health or based on insufficient windows
+
+            # APT/RCT display cells
             apt_info = res["health"]["apt"]
+            rct_info = res["health"]["rct"]
+            apt_pass_val = apt_info.get("pass")
+            rct_pass_val = rct_info.get("pass")
+
             n_bits_here = len(b)
             n_windows_here = n_bits_here // int(apt_window)
-            apt_pass_val = apt_info.get("pass")
-            if n_windows_here == 0:
+            if n_windows_here == 0 or apt_pass_val is None:
                 apt_cell = "NOT RUN"
             else:
-                apt_cell = (
-                    "NOT RUN"
-                    if apt_pass_val is None
-                    else ("PASS" if res["decisions"]["apt_pass"] else "FAIL")
-                )
+                apt_cell = "PASS" if apt_pass_val else "FAIL"
 
+            if rct_pass_val is None:
+                rct_cell = "NOT RUN"
+            else:
+                rct_cell = "PASS" if rct_pass_val else "FAIL"
+
+            # Row for compare table
             records.append(
                 {
                     "item": label,
-                    "monobit_p": round(res["monobit_p"], 6),
+                    "mono_bit_p": round(res["mono_bit_p"], 6),
                     "runs_p": round(res["runs_p"], 6),
                     "blockfreq_p": round(res["block_frequency_p"], 6),
                     "approx_entropy_p": round(res["approx_entropy_p"], 6),
@@ -293,7 +300,7 @@ if run_btn:
                     "ml_acc": None
                     if res["ml_accuracy"] is None
                     else round(res["ml_accuracy"], 5),
-                    "RCT": "PASS" if res["decisions"]["rct_pass"] else "FAIL",
+                    "RCT": rct_cell,
                     "APT": apt_cell,
                     "Overall(FDR)": "PASS"
                     if res["decisions"]["overall_pass_fdr"]
@@ -306,7 +313,7 @@ if run_btn:
         st.subheader("Compare results")
         st.dataframe(records, use_container_width=True)
         st.caption(
-            "Overall(FDR): all p-value tests pass under BH-FDR and both health tests pass."
+            "Overall(FDR): all p-value tests pass under BH-FDR and both health tests pass (skipped health tests are treated as 'not failing')."
         )
 
         # Let user pick one item to view details
@@ -327,10 +334,10 @@ if run_btn:
 
     with col1:
         st.metric(
-            "Monobit",
-            f"{res['monobit_p']:.4f}",
-            "PASS" if res["decisions"]["monobit_pass"] else "FAIL",
-            delta_color="normal" if res["decisions"]["monobit_pass"] else "inverse",
+            "Mono_bit",
+            f"{res['mono_bit_p']:.4f}",
+            "PASS" if res["decisions"]["mono_bit_pass"] else "FAIL",
+            delta_color="normal" if res["decisions"]["mono_bit_pass"] else "inverse",
         )
         st.metric(
             "Runs",
@@ -361,16 +368,13 @@ if run_btn:
         ml_acc = res["ml_accuracy"]
         if ml_acc is None:
             ml_display = "N/A"
-            ml_status = "FAIL"
+            ml_status = "N/A"
+            ml_color = "off"
         else:
             ml_display = f"{ml_acc:.4f}"
             ml_status = "PASS" if res["decisions"]["ml_pass"] else "FAIL"
-        st.metric(
-            "ML Accuracy",
-            ml_display,
-            ml_status,
-            delta_color="normal" if res["decisions"]["ml_pass"] else "inverse",
-        )
+            ml_color = "normal" if res["decisions"]["ml_pass"] else "inverse"
+        st.metric("ML Accuracy", ml_display, ml_status, delta_color=ml_color)
 
     # Config notes
     st.caption(
@@ -383,29 +387,28 @@ if run_btn:
     col1, col2 = st.columns(2)
     with col1:
         rct_info = res["health"]["rct"]
-        st.metric(
-            "Repetition Count",
-            f"max run: {rct_info['max_run']}",
-            "PASS" if rct_info["pass"] else "FAIL",
-            delta_color="normal" if rct_info["pass"] else "inverse",
-        )
-        if not rct_info["pass"]:
-            st.caption(f"Cutoff: {rct_info['cutoff']}")
+        if rct_info["pass"] is None:
+            rct_display = "NOT RUN"
+            rct_status = "N/A"
+            rct_color = "off"
+        else:
+            rct_display = f"max run: {rct_info['max_run']}"
+            rct_status = "PASS" if rct_info["pass"] else "FAIL"
+            rct_color = "normal" if rct_info["pass"] else "inverse"
+        st.metric("Repetition Count", rct_display, rct_status, delta_color=rct_color)
+        st.caption(f"Cutoff: {rct_info['cutoff']}")
 
     with col2:
         apt_info = res["health"]["apt"]
         if apt_info["pass"] is None:
             apt_display = "NOT RUN"
             apt_status = "N/A"
+            apt_color = "off"
         else:
             apt_display = f"window: {apt_info['window']}"
             apt_status = "PASS" if apt_info["pass"] else "FAIL"
-        st.metric(
-            "Adaptive Proportion",
-            apt_display,
-            apt_status,
-            delta_color="normal" if apt_info["pass"] else "inverse",
-        )
+            apt_color = "normal" if apt_info["pass"] else "inverse"
+        st.metric("Adaptive Proportion", apt_display, apt_status, delta_color=apt_color)
         if apt_info["pass"] is False and apt_info["violations"]:
             st.caption(f"Violations: {len(apt_info['violations'])}")
 

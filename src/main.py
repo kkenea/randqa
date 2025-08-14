@@ -10,11 +10,11 @@ from sources.lcg import LCG
 from sources.xorshift import XorShift32
 from sources.os_random import OSRandom
 
+from metrics.mono_bit import mono_bit_pvalue
 from metrics.approx_entropy import approximate_entropy_pvalue
 from health.rct import repetition_count_test
 from health.apt import adaptive_proportion_test
 from util.fdr import benjamini_hochberg
-from metrics.monobit import monobit_pvalue
 from metrics.runs import runs_pvalue
 from metrics.block_frequency import block_frequency_pvalue
 from metrics.entropy import shannon_entropy_bits_per_bit
@@ -35,10 +35,11 @@ def bits_from_source(src: BitSource, n_bits: int) -> np.ndarray:
     if n_bits <= 0:
         return np.zeros(0, dtype=np.uint8)
     if hasattr(src, "next_bytes"):
+        # Pull enough bytes and unpack LSB-first to match PRNG emission.
         n_bytes = (n_bits + 7) // 8
         raw = src.next_bytes(n_bytes)
         arr = np.frombuffer(raw, dtype=np.uint8)
-        bits = np.unpackbits(arr)[:n_bits]
+        bits = np.unpackbits(arr, bitorder="little")[:n_bits]
         return bits.astype(np.uint8)
     return np.fromiter(
         (src.next_bit() for _ in range(n_bits)), count=n_bits, dtype=np.uint8
@@ -47,6 +48,21 @@ def bits_from_source(src: BitSource, n_bits: int) -> np.ndarray:
 
 # Back-compat for web.py that imports _bits_from_source
 _bits_from_source = bits_from_source
+
+
+def _pack_bits_little(bits: np.ndarray) -> bytes:
+    """
+    Pack an arbitrary-length 0/1 bit array into bytes, using LSB-first within each byte.
+    Preserves trailing bits by zero-padding the final (partial) byte instead of truncating.
+    """
+    b = np.asarray(bits, dtype=np.uint8)
+    n = int(b.size)
+    if n == 0:
+        return b""
+    rem = (-n) % 8  # zeros to add to complete the final byte
+    if rem:
+        b = np.concatenate([b, np.zeros(rem, dtype=np.uint8)])
+    return np.packbits(b, bitorder="little").tobytes()
 
 
 def run_tests(
@@ -59,11 +75,14 @@ def run_tests(
     apt_window: int = 512,
 ) -> dict:
     """Compute p-values, health tests, metrics, and pass/fail decisions."""
-    n_bytes = max(1, len(bits) // 8)
-    raw_bytes = np.packbits(bits[: n_bytes * 8]).tobytes()
+    bits = np.asarray(bits, dtype=np.uint8)
+    n = int(bits.size)
+
+    # Byte view for compression (preserve all bits by padding the last byte)
+    raw_bytes = _pack_bits_little(bits)
 
     # p-value tests
-    p_mono = monobit_pvalue(bits)
+    p_mono = mono_bit_pvalue(bits)
     p_runs = runs_pvalue(bits)
     p_blk = block_frequency_pvalue(bits, M=block_size)
     p_apen = approximate_entropy_pvalue(bits, m=2)
@@ -74,36 +93,52 @@ def run_tests(
     acc = predictability_score(bits, k=ml_k)
 
     # Health tests (SP 800-90B)
-    rct = repetition_count_test(bits, cutoff=rct_cutoff)
-    apt = adaptive_proportion_test(bits, window=apt_window, alpha=alpha)
+    # Standardize empty-input behavior to "skipped" (pass=None)
+    if n == 0:
+        rct = {"pass": None, "max_run": 0, "cutoff": rct_cutoff, "approx_p": None}
+        apt = {
+            "pass": None,
+            "window": apt_window,
+            "alpha": alpha,
+            "lower": None,
+            "upper": None,
+            "violations": [],
+        }
+    else:
+        rct = repetition_count_test(bits, cutoff=rct_cutoff)
+        apt = adaptive_proportion_test(bits, window=apt_window, alpha=alpha)
 
     # BH-FDR across p-value tests
     pvals = {
-        "monobit": p_mono,
-        "runs": p_runs,
-        "block_frequency": p_blk,
-        "approx_entropy": p_apen,
+        "mono_bit": float(p_mono),
+        "runs": float(p_runs),
+        "block_frequency": float(p_blk),
+        "approx_entropy": float(p_apen),
     }
     qvals = benjamini_hochberg(pvals)
     reject_fdr = {name: (q is not None and q <= alpha) for name, q in qvals.items()}
 
+    # Helper: treat None (skipped) as "not a failure" for overall PASS
+    def _not_failed(x: bool | None) -> bool:
+        return False if x is False else True  # True for True/None
+
     decisions = {
-        "monobit_pass": p_mono > alpha,
+        "mono_bit_pass": p_mono > alpha,
         "runs_pass": p_runs > alpha,
         "block_frequency_pass": p_blk > alpha,
         "approx_entropy_pass": p_apen > alpha,
         "ml_pass": (acc is None) or (acc <= 0.55),
         "compression_pass": cr >= 0.95,
         "entropy_pass": entropy >= 0.98,
-        "rct_pass": rct["pass"],
-        "apt_pass": apt["pass"],
+        "rct_pass": rct["pass"],  # may be True/False/None
+        "apt_pass": apt["pass"],  # may be True/False/None
         "overall_pass_fdr": (not any(reject_fdr.values()))
-        and rct["pass"]
-        and apt["pass"],
+        and _not_failed(rct["pass"])
+        and _not_failed(apt["pass"]),
     }
 
     return {
-        "monobit_p": float(p_mono),
+        "mono_bit_p": float(p_mono),
         "runs_p": float(p_runs),
         "block_frequency_p": float(p_blk),
         "approx_entropy_p": float(p_apen),
@@ -133,7 +168,7 @@ def render_markdown(
 
     lines.append("## Statistical Tests (p-values)")
     lines.append(
-        f"- Monobit: `{results['monobit_p']:.6f}` — **{'PASS' if results['decisions']['monobit_pass'] else 'FAIL'}**"
+        f"- Mono_bit: `{results['mono_bit_p']:.6f}` — **{'PASS' if results['decisions']['mono_bit_pass'] else 'FAIL'}**"
     )
     lines.append(
         f"- Runs: `{results['runs_p']:.6f}` — **{'PASS' if results['decisions']['runs_pass'] else 'FAIL'}**"
@@ -149,8 +184,9 @@ def render_markdown(
     lines.append(
         f"- Compression ratio (zlib): `{results['compression_ratio']:.5f}` — **{'PASS' if results['decisions']['compression_pass'] else 'WARN'}**"
     )
-    acc = results["ml_accuracy"]
-    if acc is not None:
+    lines.append("## ML Predictability")
+    if results["ml_accuracy"] is not None:
+        acc = results["ml_accuracy"]
         lines.append(
             f"- ML next-bit accuracy (k={ml_k}): `{acc:.5f}` — **{'PASS' if results['decisions']['ml_pass'] else 'FAIL'}**"
         )
@@ -159,8 +195,8 @@ def render_markdown(
 
     lines.append("\n## Interpretation")
     comments = []
-    if not results["decisions"]["monobit_pass"]:
-        comments.append("Imbalance in ones/zeros (monobit).")
+    if not results["decisions"]["mono_bit_pass"]:
+        comments.append("Imbalance in ones/zeros (mono_bit).")
     if not results["decisions"]["runs_pass"]:
         comments.append("Abnormal oscillation pattern (runs).")
     if not results["decisions"]["block_frequency_pass"]:

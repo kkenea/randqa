@@ -1,5 +1,5 @@
 import numpy as np
-from metrics.runs import runs_pvalue
+from metrics.mono_bit import mono_bit_pvalue
 from sources.lcg import LCG
 from sources.xorshift import XorShift32
 from sources.os_random import OSRandom
@@ -18,45 +18,45 @@ def bits_from_source(src, n_bits):
     )
 
 
-def test_lcg_runs_not_extreme_sanity():
-    """LCG is weak; accept any valid p while still exercising code paths."""
-    bits = bits_from_source(LCG(seed=42), 50_000)
-    p = runs_pvalue(bits)
-    assert 0.0 <= p <= 1.0, f"Invalid runs p-value {p} for LCG"
+def test_lcg_mono_bit():
+    """LCG mono_bit shouldn't look wildly imbalanced."""
+    bits = bits_from_source(LCG(seed=42), 100_000)
+    p = mono_bit_pvalue(bits)
+    assert p > 0.0001, f"LCG mono_bit p={p} is too extreme"
 
 
-def test_xorshift_runs_reasonable():
-    """XorShift runs should not be extremely small most of the time."""
-    bits = bits_from_source(XorShift32(seed=42), 50_000)
-    p = runs_pvalue(bits)
-    assert p > 0.001, f"XorShift runs p={p} is too extreme"
+def test_xorshift_mono_bit():
+    """XorShift mono_bit should be reasonable."""
+    bits = bits_from_source(XorShift32(seed=42), 100_000)
+    p = mono_bit_pvalue(bits)
+    assert p > 0.001, f"XorShift mono_bit p={p} is too extreme"
 
 
-def test_os_random_runs_stable_enough():
+def test_os_random_mono_bit_stable_enough():
     """
-    OS RNG can occasionally yield a small p by chance.
+    OS RNG mono_bit occasionally yields small p by chance.
     Try several batches and require at least one comfortably above the cutoff.
     """
     ps = []
     for _ in range(5):
         bits = bits_from_source(OSRandom(), 100_000)
-        ps.append(runs_pvalue(bits))
-    assert max(ps) > 1e-4, f"All OS random runs p-values were too extreme: {ps}"
+        ps.append(mono_bit_pvalue(bits))
+    assert max(ps) > 0.001, f"All OS random mono_bit p-values were too extreme: {ps}"
 
 
-def test_runs_edge_cases():
-    """Runs test edge cases."""
+def test_mono_bit_edge_cases():
+    """Mono_bit edge cases."""
     # All zeros
     bits = np.zeros(10_000, dtype=np.uint8)
-    p = runs_pvalue(bits)
+    p = mono_bit_pvalue(bits)
     assert p == 0.0, f"All zeros should give p=0, got {p}"
 
     # All ones
     bits = np.ones(10_000, dtype=np.uint8)
-    p = runs_pvalue(bits)
+    p = mono_bit_pvalue(bits)
     assert p == 0.0, f"All ones should give p=0, got {p}"
 
-    # Perfect alternating pattern -> extreme runs -> very small p (treated as 0.0)
+    # Perfect alternating pattern - balanced and should pass
     bits = np.tile([0, 1], 5_000).astype(np.uint8)
-    p = runs_pvalue(bits)
-    assert p == 0.0, f"Perfect alternating should give p=0, got {p}"
+    p = mono_bit_pvalue(bits)
+    assert p > 0.1, f"Perfect alternating should pass (p>0.1), got {p}"

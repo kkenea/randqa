@@ -1,16 +1,15 @@
-# randqa
+# randqa - Randomness Quality Assessment
 
-A toolkit for analyzing randomness quality in cryptographic applications. Implements NIST SP 800-22 statistical tests, NIST SP 800-90B health tests, supporting metrics, ML predictability analysis, and multiple interfaces: Streamlit GUI, Flask API, and CLI.
+A comprehensive toolkit for analyzing randomness quality in cryptographic applications. Implements NIST SP 800-22 statistical tests, SP 800-90B health tests, ML predictability analysis, and provides multiple interfaces (GUI, API, CLI) with optional AI recommendations.
 
 ## Features
 
-- Statistical Tests (SP 800-22): Monobit, Runs, Block Frequency, Approximate Entropy
-- Health Tests (SP 800-90B): Repetition Count Test (RCT) & Adaptive Proportion Test (APT)
-- Metrics: Shannon entropy, zlib compression ratio
-- ML Analysis: Logistic regression next-bit prediction
-- Multiple Testing: Benjamini-Hochberg FDR with overall verdict
-- Interfaces: Streamlit GUI, Flask web API, CLI
-- AI Recommendations: OpenAI, Google Gemini, Anthropic (user supplied API key)
+- **Statistical Tests (SP 800-22):** Mono_bit, Runs, Block Frequency, Approximate Entropy
+- **Health Tests (SP 800-90B):** Repetition Count Test (RCT), Adaptive Proportion Test (APT)
+- **Machine Learning:** Next-bit predictability analysis using logistic regression
+- **Multiple Interfaces:** Streamlit GUI, Flask API, command-line tools
+- **AI Integration:** Optional LLM-powered analysis and recommendations
+- **Comprehensive Reporting:** Markdown and JSON output formats
 
 ## Quick Start (Docker) - Recommended
 
@@ -220,7 +219,7 @@ Response:
   "ml_k": 8,
   "seed": 42,
   "results": {
-    "monobit_p": 1.0,
+    "mono_bit_p": 1.0,
     "runs_p": 0.0,
     "block_frequency_p": 1.0,
     "approx_entropy_p": 0.0,
@@ -231,10 +230,10 @@ Response:
       "rct": { "pass": true, "max_run": 1, "cutoff": 34, "approx_p": 0.0000116415 },
       "apt": { "pass": true, "window": 512, "alpha": 0.01, "lower": 227, "upper": 285, "violations": [] }
     },
-    "pvals_raw": { "monobit": 1.0, "runs": 0.0, "block_frequency": 1.0, "approx_entropy": 0.0 },
-    "pvals_fdr": { "monobit": 1.0, "runs": 0.0, "block_frequency": 1.0, "approx_entropy": 0.0 },
+    "pvals_raw": { "mono_bit": 1.0, "runs": 0.0, "block_frequency": 1.0, "approx_entropy": 0.0 },
+    "pvals_fdr": { "mono_bit": 1.0, "runs": 0.0, "block_frequency": 1.0, "approx_entropy": 0.0 },
     "decisions": {
-      "monobit_pass": true,
+      "mono_bit_pass": true,
       "runs_pass": false,
       "block_frequency_pass": true,
       "approx_entropy_pass": false,

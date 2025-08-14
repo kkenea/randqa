@@ -1,31 +1,63 @@
-# Statistical Tests & Metrics
+# Metrics
 
-This directory contains implementations of NIST SP 800-22 statistical tests and supporting metrics for randomness assessment.
+This module contains statistical tests and metrics for randomness assessment.
 
-## NIST SP 800-22 Tests
+## Statistical Tests
 
-### `monobit.py` - Monobit (Frequency) Test
-- Purpose: Tests overall balance of 0s and 1s
-- Output: p-value indicating randomness quality
+### `mono_bit.py` - Mono_bit (Frequency) Test
+
+The mono_bit test checks the overall balance of 0s and 1s in a binary sequence. It's based on the NIST SP 800-22 specification.
+
+**Function:** `monobit_pvalue(bits: np.ndarray) -> float`
+
+**Returns:** p-value indicating the probability of observing the given imbalance by chance.
+
+**Interpretation:** 
+- p > α: Sequence appears balanced (PASS)
+- p ≤ α: Sequence shows significant imbalance (FAIL)
 
 ### `runs.py` - Runs Test
-- Purpose: Tests count of consecutive 0s and 1s
-- Output: p-value for run patterns
+
+The runs test counts the number of runs (contiguous sequences of identical bits) and compares against the expected distribution.
+
+**Function:** `runs_pvalue(bits: np.ndarray) -> float`
+
+**Returns:** p-value for the runs test.
 
 ### `block_frequency.py` - Block Frequency Test
-- Purpose: Tests local bias within fixed-size blocks
-- Output: p-value for block-wise randomness
+
+Splits the sequence into blocks and tests the frequency of 1s within each block.
+
+**Function:** `block_frequency_pvalue(bits: np.ndarray, M: int) -> float`
+
+**Parameters:**
+- `bits`: Binary sequence
+- `M`: Block size
 
 ### `approx_entropy.py` - Approximate Entropy Test
-- Purpose: Detects repeating patterns and local regularity
-- Output: p-value for pattern detection
 
-## Supporting Metrics
+Measures the regularity and predictability of patterns in the sequence.
+
+**Function:** `approximate_entropy_pvalue(bits: np.ndarray, m: int = 2) -> float`
+
+**Parameters:**
+- `bits`: Binary sequence  
+- `m`: Pattern length (default: 2)
+
+## Entropy and Compression
 
 ### `entropy.py` - Shannon Entropy
-- Purpose: Measures information content per bit
-- Output: Bits per bit (0.0 to 1.0)
+
+Calculates the Shannon entropy per bit, measuring information content.
+
+**Function:** `shannon_entropy_bits_per_bit(bits: np.ndarray) -> float`
+
+**Returns:** Entropy in bits per bit (0.0 to 1.0).
 
 ### `compression.py` - Compression Ratio
-- Purpose: Tests compressibility using zlib
-- Output: Compression ratio (lower = more compressible) 
+
+Measures how compressible the data is using zlib compression.
+
+**Function:** `compression_ratio(data: bytes) -> float`
+
+**Returns:** Compression ratio (0.0 to 1.0, higher = less compressible). 
