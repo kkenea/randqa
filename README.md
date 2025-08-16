@@ -1,6 +1,6 @@
 # randqa - Randomness Quality Assessment
 
-A comprehensive toolkit for analyzing randomness quality in cryptographic applications. Implements NIST SP 800-22 statistical tests, SP 800-90B health tests, ML predictability analysis, and provides multiple interfaces (GUI, API, CLI) with optional AI recommendations.
+A toolkit for analyzing randomness quality in cryptographic applications. Implements NIST SP 800-22 statistical tests, SP 800-90B health tests, ML predictability analysis, and provides multiple interfaces (GUI, API, CLI) with optional AI recommendations.
 
 ## Features
 
